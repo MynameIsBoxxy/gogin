@@ -45,7 +45,6 @@ func init() {
 
 func UpdateNew(psNew s.PostNews, newId string) {
 
-	/* db := Database()*/
 	tx := db.MustBegin()
 	if psNew.Title != "" {
 		tx.MustExec("UPDATE News SET Title=? WHERE Id=?", psNew.Title, newId)
@@ -57,19 +56,19 @@ func UpdateNew(psNew s.PostNews, newId string) {
 	if psNew.Categories != nil {
 		tx.MustExec("DELETE FROM NewsCategories WHERE NewsId=?", newId)
 		for _, value := range psNew.Categories {
-
 			tx.MustExec("INSERT INTO NewsCategories (NewsId, CategoryId) VALUES (?, ?)", newId, value)
 		}
+
 	}
 	tx.Commit()
-	/* db.Close()*/
+
 }
 
 func IssetNew(id string) bool {
-	/* db := Database()*/
+
 	var new s.News2
 	err := db.Get(&new, "SELECT * FROM News WHERE Id =?", id)
-	/* db.Close()*/
+
 	return err == nil
 }
 
@@ -97,20 +96,18 @@ func editNew(c *gin.Context) {
 	}
 }
 func getListNews(c *gin.Context) {
-	var new []s.News2
 	var newChange []s.NewsResult
 
-	/* db := Database()*/
-	err := db.Select(&new, "SELECT * FROM News")
+	err := db.Select(&newChange, "SELECT * FROM News")
 
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	if len(new) > 0 {
-		for _, item := range new {
-			newChange = append(newChange, getNewById(item.Id))
 
+	if len(newChange) > 0 {
+		for index, item := range newChange {
+			newChange[index].Categories = getListCategories(item.Id)
 		}
 	}
 
@@ -119,11 +116,22 @@ func getListNews(c *gin.Context) {
 		"News":    newChange,
 	})
 
-	/* db.Close()*/
+}
+
+func getListCategories(id int64) []int64 {
+	var cat []int64
+	var curCat []int64
+	err := db.Select(&curCat, "SELECT CategoryId FROM NewsCategories WHERE NewsId =?", id)
+	log.Println(curCat)
+	if err != nil {
+		log.Println(err)
+	}
+	cat = append(cat, curCat...)
+
+	return cat
 }
 
 func getNewById(id int64) s.NewsResult {
-	/* db := Database()*/
 	var new s.News2
 	var newChange s.NewsResult
 	err := db.Get(&new, "SELECT * FROM News WHERE Id =?", id)
@@ -132,27 +140,11 @@ func getNewById(id int64) s.NewsResult {
 		log.Println(err)
 	}
 
-	rows, err := db.Queryx("SELECT CategoryId FROM NewsCategories WHERE NewsId =?", id)
-
-	if err != nil {
-		log.Println(err)
-	}
-	var cat []interface{}
-
-	for rows.Next() {
-
-		row, err := rows.SliceScan()
-		if err != nil {
-			log.Println(err)
-		}
-		cat = append(cat, row...)
-	}
-
 	newChange.Id = new.Id
 	newChange.Title = new.Title
 	newChange.Content = new.Content
-	newChange.Categories = cat
-	/* db.Close()*/
+	newChange.Categories = getListCategories(id)
+
 	return newChange
 
 }
